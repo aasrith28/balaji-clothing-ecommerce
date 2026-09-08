@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile - Balaji Clothing</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo">Balaji <span>Clothing</span></a>
+      <div class="nav-actions">
+        <a href="/cart" class="cart-btn">🛒 Cart <span class="cart-count" id="cart-count">0</span></a>
+        <button class="auth-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+  <div class="form-card">
+    <h2 style="text-align:center;margin-bottom:1.5rem">My Profile</h2>
+    <div id="alert"></div>
+    <form id="profile-form">
+      <div class="form-group"><label>Name</label><input id="name" required></div>
+      <div class="form-group"><label>Email</label><input id="email" disabled></div>
+      <div class="form-group"><label>Phone</label><input id="phone"></div>
+      <div class="form-group"><label>Role</label><input id="role" disabled></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Update Profile</button>
+    </form>
+  </div>
+  <script src="/static/js/app.js"></script>
+  <script>
+    if (!isLoggedIn()) location.href = '/login';
+    async function load() {
+      const user = await api('/auth/profile');
+      document.getElementById('name').value = user.name;
+      document.getElementById('email').value = user.email;
+      document.getElementById('phone').value = user.phone || '';
+      document.getElementById('role').value = user.role;
+    }
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const data = await api('/auth/profile', {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: document.getElementById('name').value,
+            phone: document.getElementById('phone').value
+          })
+        });
+        setAuth(getToken(), data);
+        showToast('Profile updated', 'success');
+      } catch(err) {
+        document.getElementById('alert').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+      }
+    });
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Orders - Balaji Clothing</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo">Balaji <span>Clothing</span></a>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/shop">Shop</a></li>
+        <li><a href="/orders" class="active">My Orders</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a href="/cart" class="cart-btn">🛒 Cart <span class="cart-count" id="cart-count">0</span></a>
+        <div id="user-menu" style="display:flex;align-items:center;gap:0.75rem">
+          <span id="user-name" style="color:white"></span>
+          <button class="auth-btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">My Orders</h2>
+      <div id="success-msg"></div>
+      <div id="orders"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+    </div>
+  </section>
+  <script src="/static/js/app.js"></script>
+  <script>
+    if (!isLoggedIn()) location.href = '/login';
+    const params = new URLSearchParams(location.search);
+    if (params.get('success')) {
+      document.getElementById('success-msg').innerHTML = `
+        <div class="alert alert-success">
+          🎉 Order placed successfully! Order #${params.get('order') || ''}
+        </div>`;
+    }
+    async function loadOrders() {
+      try {
+        const orders = await api('/orders');
+        if (!orders.length) {
+          document.getElementById('orders').innerHTML = `
+            <div class="empty-state">
+              <div class="icon">📦</div>
+              <h3>No orders yet</h3>
+              <a href="/shop" class="btn btn-primary" style="margin-top:1rem">Start Shopping</a>
+            </div>`;
+          return;
+        }
+        document.getElementById('orders').innerHTML = orders.map(o => `
+          <div class="order-card">
+            <div class="order-header">
+              <div>
+                <strong>${o.order_number}</strong>
+                <div style="font-size:0.85rem;color:var(--muted)">${new Date(o.created_at).toLocaleString()}</div>
+              </div>
+              <span class="status-badge status-${o.status}">${o.status}</span>
+            </div>
+            <div style="margin-bottom:0.75rem">
+              ${o.items.map(i => `<div style="font-size:0.9rem">${i.product?.name || 'Product'} × ${i.quantity} — ${formatPrice(i.subtotal)}</div>`).join('')}
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span>Payment: ${o.payment_method === 'cod' ? 'Cash on Delivery' : 'Online'} (${o.payment_status})</span>
+              <strong style="font-size:1.1rem">${formatPrice(o.total)}</strong>
+            </div>
+          </div>
+        `).join('');
+      } catch(e) {
+        document.getElementById('orders').innerHTML = '<p>Failed to load orders</p>';
+      }
+    }
+    loadOrders();
+  </script>
+</body>
+</html>

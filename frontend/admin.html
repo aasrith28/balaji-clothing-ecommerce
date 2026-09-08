@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Balaji Clothing</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo">Balaji <span>Admin</span></a>
+      <div class="nav-actions">
+        <a href="/" class="auth-btn">View Store</a>
+        <button class="auth-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <a href="/admin" class="active">Dashboard</a>
+      <a href="/admin/products">Products</a>
+      <a href="/admin/orders">Orders</a>
+      <a href="#" onclick="showUsers()">Users</a>
+    </aside>
+    <main class="admin-content">
+      <h2 style="margin-bottom:1.5rem">Dashboard</h2>
+      <div class="stats-grid" id="stats">
+        <div class="stat-card"><h3>Total Products</h3><div class="value" id="stat-products">-</div></div>
+        <div class="stat-card"><h3>Total Orders</h3><div class="value" id="stat-orders">-</div></div>
+        <div class="stat-card"><h3>Total Users</h3><div class="value" id="stat-users">-</div></div>
+        <div class="stat-card"><h3>Revenue</h3><div class="value" id="stat-revenue">-</div></div>
+      </div>
+      <h3 style="margin:1.5rem 0 1rem">Recent Orders</h3>
+      <div id="recent-orders"><div class="loading"><div class="spinner"></div></div></div>
+      <div id="users-section" style="display:none;margin-top:2rem">
+        <h3>Registered Users</h3>
+        <div id="users-list"></div>
+      </div>
+    </main>
+  </div>
+  <script src="/static/js/app.js"></script>
+  <script>
+    if (!isLoggedIn() || !isAdmin()) { location.href = '/login'; }
+
+    async function load() {
+      try {
+        const [products, orders, users] = await Promise.all([
+          api('/admin/products'),
+          api('/admin/orders'),
+          api('/admin/users')
+        ]);
+        document.getElementById('stat-products').textContent = products.length;
+        document.getElementById('stat-orders').textContent = orders.length;
+        document.getElementById('stat-users').textContent = users.length;
+        const rev = orders.filter(o => o.status !== 'cancelled').reduce((s,o) => s + o.total, 0);
+        document.getElementById('stat-revenue').textContent = formatPrice(rev);
+
+        document.getElementById('recent-orders').innerHTML = `
+          <table class="data-table">
+            <thead><tr><th>Order #</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+              ${orders.slice(0,8).map(o => `
+                <tr>
+                  <td>${o.order_number}</td>
+                  <td>${o.customer_name}</td>
+                  <td>${formatPrice(o.total)}</td>
+                  <td><span class="status-badge status-${o.status}">${o.status}</span></td>
+                  <td>${new Date(o.created_at).toLocaleDateString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>`;
+      } catch(e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    async function showUsers() {
+      document.getElementById('users-section').style.display = 'block';
+      const users = await api('/admin/users');
+      document.getElementById('users-list').innerHTML = `
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Joined</th></tr></thead>
+          <tbody>
+            ${users.map(u => `
+              <tr>
+                <td>${u.name}</td>
+                <td>${u.email}</td>
+                <td>${u.phone || '-'}</td>
+                <td>${u.role}</td>
+                <td>${new Date(u.created_at).toLocaleDateString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    load();
+  </script>
+</body>
+</html>

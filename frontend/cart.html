@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cart - Balaji Clothing</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo">Balaji <span>Clothing</span></a>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/shop">Shop</a></li>
+        <li><a href="/orders">My Orders</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a href="/cart" class="cart-btn">🛒 Cart <span class="cart-count" id="cart-count">0</span></a>
+        <a href="/login" class="auth-btn" id="auth-btn">Login</a>
+        <div id="user-menu" style="display:none;align-items:center;gap:0.75rem">
+          <span id="user-name" style="color:white"></span>
+          <button class="auth-btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Shopping Cart</h2>
+      <div id="cart-content">
+        <div class="loading"><div class="spinner"></div>Loading...</div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    if (!isLoggedIn()) { location.href = '/login'; }
+
+    async function loadCart() {
+      try {
+        const data = await api('/cart');
+        if (!data.cart.items || data.cart.items.length === 0) {
+          document.getElementById('cart-content').innerHTML = `
+            <div class="empty-state">
+              <div class="icon">🛒</div>
+              <h3>Your cart is empty</h3>
+              <p>Looks like you haven't added anything yet.</p>
+              <a href="/shop" class="btn btn-primary" style="margin-top:1.5rem">Continue Shopping</a>
+            </div>`;
+          return;
+        }
+
+        let rows = data.cart.items.map(item => `
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:1rem">
+                <img src="${item.product.image_url}" style="width:60px;height:60px;object-fit:cover;border-radius:8px" onerror="this.src='https://via.placeholder.com/60'">
+                <div>
+                  <strong>${item.product.name}</strong>
+                  <div style="font-size:0.85rem;color:var(--muted)">${formatPrice(item.product.price)} each</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="qty-control">
+                <button onclick="updateQty(${item.id}, ${item.quantity - 1})">−</button>
+                <span>${item.quantity}</span>
+                <button onclick="updateQty(${item.id}, ${item.quantity + 1})">+</button>
+              </div>
+            </td>
+            <td><strong>${formatPrice(item.product.price * item.quantity)}</strong></td>
+            <td><button class="btn btn-sm" style="background:var(--danger);color:white" onclick="removeItem(${item.id})">Remove</button></td>
+          </tr>
+        `).join('');
+
+        document.getElementById('cart-content').innerHTML = `
+          <table class="cart-table">
+            <thead><tr><th>Product</th><th>Quantity</th><th>Subtotal</th><th></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="cart-summary" style="max-width:400px;margin-left:auto">
+            <div class="row"><span>Subtotal</span><span>${formatPrice(data.subtotal)}</span></div>
+            <div class="row"><span>Shipping</span><span>${data.subtotal >= 999 ? 'FREE' : formatPrice(99)}</span></div>
+            <div class="row total"><span>Total</span><span>${formatPrice(data.subtotal + (data.subtotal >= 999 ? 0 : 99))}</span></div>
+            <a href="/checkout" class="btn btn-primary" style="width:100%;margin-top:1rem;text-align:center">Proceed to Checkout</a>
+          </div>
+        `;
+        updateCartCount();
+      } catch(e) {
+        document.getElementById('cart-content').innerHTML = '<p>Failed to load cart</p>';
+      }
+    }
+
+    async function updateQty(itemId, qty) {
+      try {
+        await api('/cart/items/' + itemId, { method:'PUT', body: JSON.stringify({quantity: qty}) });
+        loadCart();
+      } catch(e) { showToast(e.message, 'error'); }
+    }
+
+    async function removeItem(itemId) {
+      try {
+        await api('/cart/items/' + itemId, { method:'DELETE' });
+        showToast('Item removed', 'success');
+        loadCart();
+      } catch(e) { showToast(e.message, 'error'); }
+    }
+
+    loadCart();
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Products - Admin</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/admin" class="logo">Balaji <span>Admin</span></a>
+      <div class="nav-actions">
+        <a href="/" class="auth-btn">View Store</a>
+        <button class="auth-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/products" class="active">Products</a>
+      <a href="/admin/orders">Orders</a>
+    </aside>
+    <main class="admin-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+        <h2>Products</h2>
+        <button class="btn btn-primary" onclick="showAddForm()">+ Add Product</button>
+      </div>
+      <div id="add-form" style="display:none;background:white;padding:1.5rem;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:1.5rem">
+        <h3 style="margin-bottom:1rem">Add / Edit Product</h3>
+        <form id="product-form">
+          <input type="hidden" id="edit-id">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <div class="form-group"><label>Name *</label><input id="p-name" required></div>
+            <div class="form-group"><label>Category *</label><select id="p-cat" required></select></div>
+            <div class="form-group"><label>Price *</label><input type="number" id="p-price" required min="1"></div>
+            <div class="form-group"><label>Compare At</label><input type="number" id="p-compare"></div>
+            <div class="form-group"><label>Stock *</label><input type="number" id="p-stock" required min="0"></div>
+            <div class="form-group"><label>Image URL</label><input id="p-image"></div>
+            <div class="form-group"><label>Rating</label><input type="number" id="p-rating" step="0.1" min="0" max="5" value="4"></div>
+            <div class="form-group"><label><input type="checkbox" id="p-featured"> Featured</label></div>
+          </div>
+          <div class="form-group"><label>Description</label><textarea id="p-desc" rows="2"></textarea></div>
+          <button type="submit" class="btn btn-primary">Save Product</button>
+          <button type="button" class="btn" style="margin-left:0.5rem" onclick="hideForm()">Cancel</button>
+        </form>
+      </div>
+      <div id="products-list"><div class="loading"><div class="spinner"></div></div></div>
+    </main>
+  </div>
+  <script src="/static/js/app.js"></script>
+  <script>
+    if (!isLoggedIn() || !isAdmin()) location.href = '/login';
+    let categories = [];
+
+    async function init() {
+      categories = await api('/categories');
+      const sel = document.getElementById('p-cat');
+      categories.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.id; o.textContent = c.name;
+        sel.appendChild(o);
+      });
+      loadProducts();
+    }
+
+    async function loadProducts() {
+      const products = await api('/admin/products');
+      document.getElementById('products-list').innerHTML = `
+        <table class="data-table">
+          <thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Featured</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${products.map(p => `
+              <tr>
+                <td><img src="${p.image_url}" style="width:40px;height:40px;object-fit:cover;border-radius:6px" onerror="this.src='https://via.placeholder.com/40'"></td>
+                <td>${p.name}</td>
+                <td>${p.category?.name || '-'}</td>
+                <td>${formatPrice(p.price)}</td>
+                <td>${p.stock}</td>
+                <td>${p.is_featured ? '✓' : ''}</td>
+                <td>
+                  <button class="btn btn-sm btn-primary" onclick='editProduct(${JSON.stringify(p)})'>Edit</button>
+                  <button class="btn btn-sm" style="background:var(--danger);color:white;margin-left:4px" onclick="deleteProduct(${p.id})">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    function showAddForm() {
+      document.getElementById('edit-id').value = '';
+      document.getElementById('product-form').reset();
+      document.getElementById('add-form').style.display = 'block';
+    }
+    function hideForm() { document.getElementById('add-form').style.display = 'none'; }
+
+    function editProduct(p) {
+      document.getElementById('edit-id').value = p.id;
+      document.getElementById('p-name').value = p.name;
+      document.getElementById('p-cat').value = p.category_id;
+      document.getElementById('p-price').value = p.price;
+      document.getElementById('p-compare').value = p.compare_at || '';
+      document.getElementById('p-stock').value = p.stock;
+      document.getElementById('p-image').value = p.image_url || '';
+      document.getElementById('p-rating').value = p.rating;
+      document.getElementById('p-featured').checked = p.is_featured;
+      document.getElementById('p-desc').value = p.description || '';
+      document.getElementById('add-form').style.display = 'block';
+    }
+
+    document.getElementById('product-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('edit-id').value;
+      const body = {
+        name: document.getElementById('p-name').value,
+        category_id: parseInt(document.getElementById('p-cat').value),
+        price: parseFloat(document.getElementById('p-price').value),
+        compare_at: parseFloat(document.getElementById('p-compare').value) || 0,
+        stock: parseInt(document.getElementById('p-stock').value),
+        image_url: document.getElementById('p-image').value,
+        rating: parseFloat(document.getElementById('p-rating').value) || 0,
+        is_featured: document.getElementById('p-featured').checked,
+        description: document.getElementById('p-desc').value,
+        is_active: true
+      };
+      try {
+        if (id) {
+          await api('/admin/products/' + id, { method: 'PUT', body: JSON.stringify(body) });
+          showToast('Product updated', 'success');
+        } else {
+          await api('/admin/products', { method: 'POST', body: JSON.stringify(body) });
+          showToast('Product created', 'success');
+        }
+        hideForm();
+        loadProducts();
+      } catch(err) { showToast(err.message, 'error'); }
+    });
+
+    async function deleteProduct(id) {
+      if (!confirm('Delete this product?')) return;
+      try {
+        await api('/admin/products/' + id, { method: 'DELETE' });
+        showToast('Deleted', 'success');
+        loadProducts();
+      } catch(e) { showToast(e.message, 'error'); }
+    }
+
+    init();
+  </script>
+</body>
+</html>

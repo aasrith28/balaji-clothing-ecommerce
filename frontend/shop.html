@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop - Balaji Clothing</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo">Balaji <span>Clothing</span></a>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/shop" class="active">Shop</a></li>
+        <li><a href="/shop?category_id=1">Men</a></li>
+        <li><a href="/shop?category_id=2">Women</a></li>
+        <li><a href="/orders">My Orders</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a href="/cart" class="cart-btn">🛒 Cart <span class="cart-count" id="cart-count">0</span></a>
+        <a href="/login" class="auth-btn" id="auth-btn">Login</a>
+        <div id="user-menu" style="display:none;align-items:center;gap:0.75rem">
+          <span id="user-name" style="color:white"></span>
+          <button class="auth-btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">All Products</h2>
+      <div class="filters-bar">
+        <input type="text" id="search" placeholder="Search..." style="min-width:180px">
+        <select id="category">
+          <option value="">All Categories</option>
+        </select>
+        <select id="sort">
+          <option value="">Featured</option>
+          <option value="price_asc">Price: Low to High</option>
+          <option value="price_desc">Price: High to Low</option>
+          <option value="rating">Top Rated</option>
+          <option value="newest">Newest</option>
+        </select>
+        <input type="number" id="min_price" placeholder="Min ₹" style="width:100px">
+        <input type="number" id="max_price" placeholder="Max ₹" style="width:100px">
+        <button class="btn btn-primary btn-sm" onclick="loadProducts(1)">Apply</button>
+      </div>
+      <div class="products-grid" id="products">
+        <div class="loading"><div class="spinner"></div>Loading...</div>
+      </div>
+      <div id="pagination" style="text-align:center;margin-top:2rem"></div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom">&copy; 2026 Balaji Clothing. All rights reserved.</div>
+    </div>
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    let currentPage = 1;
+
+    async function loadCategories() {
+      const cats = await api('/categories');
+      const sel = document.getElementById('category');
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        if (params.get('category_id') == c.id) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    async function loadProducts(page = 1) {
+      currentPage = page;
+      const q = new URLSearchParams();
+      const search = document.getElementById('search').value || params.get('search') || '';
+      const cat = document.getElementById('category').value || params.get('category_id') || '';
+      const sort = document.getElementById('sort').value || params.get('sort_by') || '';
+      const minP = document.getElementById('min_price').value;
+      const maxP = document.getElementById('max_price').value;
+      if (search) q.set('search', search);
+      if (cat) q.set('category_id', cat);
+      if (sort) q.set('sort_by', sort);
+      if (minP) q.set('min_price', minP);
+      if (maxP) q.set('max_price', maxP);
+      q.set('page', page);
+      q.set('limit', 12);
+
+      document.getElementById('products').innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+      try {
+        const data = await api('/products?' + q.toString());
+        if (!data.products.length) {
+          document.getElementById('products').innerHTML = '<div class="empty-state"><div class="icon">🛍️</div><h3>No products found</h3></div>';
+          document.getElementById('pagination').innerHTML = '';
+          return;
+        }
+        document.getElementById('products').innerHTML = data.products.map(p => `
+          <div class="product-card">
+            <a href="/product?id=${p.id}"><img class="product-img" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://via.placeholder.com/400x400?text=Product'"></a>
+            <div class="product-body">
+              <div class="product-category">${p.category?.name || ''}</div>
+              <a href="/product?id=${p.id}"><h3 class="product-name">${p.name}</h3></a>
+              <div class="product-rating">${stars(p.rating)}</div>
+              <div class="product-price">
+                <span class="price-current">${formatPrice(p.price)}</span>
+                ${p.compare_at ? `<span class="price-old">${formatPrice(p.compare_at)}</span>` : ''}
+              </div>
+              <div class="product-actions">
+                <button class="btn btn-add" onclick="addToCart(${p.id})">Add to Cart</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+        // Pagination
+        let pag = '';
+        if (data.pages > 1) {
+          for (let i = 1; i <= data.pages; i++) {
+            pag += `<button class="btn btn-sm ${i===data.page?'btn-primary':'btn-outline'}" style="margin:0 4px;color:${i===data.page?'white':'var(--primary)'};border-color:var(--primary)" onclick="loadProducts(${i})">${i}</button>`;
+          }
+        }
+        document.getElementById('pagination').innerHTML = pag;
+      } catch(e) {
+        document.getElementById('products').innerHTML = '<p>Failed to load products</p>';
+      }
+    }
+
+    async function addToCart(id) {
+      if (!isLoggedIn()) { showToast('Please login first', 'error'); setTimeout(()=>location.href='/login',800); return; }
+      try {
+        await api('/cart/items', { method:'POST', body: JSON.stringify({product_id:id, quantity:1}) });
+        showToast('Added to cart!', 'success');
+        updateCartCount();
+      } catch(e) { showToast(e.message, 'error'); }
+    }
+
+    // Pre-fill from URL
+    if (params.get('search')) document.getElementById('search').value = params.get('search');
+    if (params.get('sort_by')) document.getElementById('sort').value = params.get('sort_by');
+
+    loadCategories().then(() => loadProducts(1));
+  </script>
+</body>
+</html>

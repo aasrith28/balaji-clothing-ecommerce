@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product - Balaji Clothing</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="logo">Balaji <span>Clothing</span></a>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/shop">Shop</a></li>
+        <li><a href="/orders">My Orders</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a href="/cart" class="cart-btn">🛒 Cart <span class="cart-count" id="cart-count">0</span></a>
+        <a href="/login" class="auth-btn" id="auth-btn">Login</a>
+        <div id="user-menu" style="display:none;align-items:center;gap:0.75rem">
+          <span id="user-name" style="color:white"></span>
+          <button class="auth-btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <section class="section">
+    <div class="container" id="product-detail">
+      <div class="loading"><div class="spinner"></div>Loading...</div>
+    </div>
+  </section>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id) location.href = '/shop';
+
+    async function load() {
+      try {
+        const p = await api('/products/' + id);
+        document.title = p.name + ' - Balaji Clothing';
+        document.getElementById('product-detail').innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start">
+            <img src="${p.image_url}" alt="${p.name}" style="width:100%;border-radius:var(--radius);box-shadow:var(--shadow);max-height:500px;object-fit:cover" onerror="this.src='https://via.placeholder.com/500x500?text=Product'">
+            <div>
+              <div class="product-category">${p.category?.name || ''}</div>
+              <h1 style="font-size:1.8rem;margin:0.5rem 0">${p.name}</h1>
+              <div class="product-rating" style="margin-bottom:1rem">${stars(p.rating)} · ${p.num_reviews} reviews</div>
+              <div class="product-price" style="margin-bottom:1.5rem">
+                <span class="price-current" style="font-size:1.8rem">${formatPrice(p.price)}</span>
+                ${p.compare_at ? `<span class="price-old">${formatPrice(p.compare_at)}</span>` : ''}
+              </div>
+              <p style="color:var(--muted);margin-bottom:1.5rem;line-height:1.7">${p.description}</p>
+              <p style="margin-bottom:1rem"><strong>Stock:</strong> ${p.stock > 0 ? `<span style="color:var(--success)">${p.stock} available</span>` : '<span style="color:var(--danger)">Out of stock</span>'}</p>
+              <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1.5rem">
+                <label>Qty:</label>
+                <input type="number" id="qty" value="1" min="1" max="${p.stock}" style="width:70px;padding:0.5rem;border:1px solid var(--border);border-radius:8px">
+              </div>
+              <button class="btn btn-primary" style="width:100%;padding:1rem" onclick="addToCart(${p.id})" ${p.stock < 1 ? 'disabled' : ''}>
+                ${p.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+              </button>
+            </div>
+          </div>
+        `;
+      } catch(e) {
+        document.getElementById('product-detail').innerHTML = '<div class="empty-state"><h3>Product not found</h3><a href="/shop" class="btn btn-primary" style="margin-top:1rem">Back to Shop</a></div>';
+      }
+    }
+
+    async function addToCart(pid) {
+      if (!isLoggedIn()) { showToast('Please login first', 'error'); setTimeout(()=>location.href='/login',800); return; }
+      const qty = parseInt(document.getElementById('qty').value) || 1;
+      try {
+        await api('/cart/items', { method:'POST', body: JSON.stringify({product_id:pid, quantity:qty}) });
+        showToast('Added to cart!', 'success');
+        updateCartCount();
+      } catch(e) { showToast(e.message, 'error'); }
+    }
+
+    load();
+  </script>
+</body>
+</html>

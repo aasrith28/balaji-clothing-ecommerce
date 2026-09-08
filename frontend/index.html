@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balaji Clothing - Premium Fashion Store</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+     <a href="/" class="logo">
+  <img src="/static/images/logo.png" alt="Balaji Clothing Logo">
+</a>
+      <ul class="nav-links">
+        <li><a href="/" class="active">Home</a></li>
+        <li><a href="/shop">Shop</a></li>
+        <li><a href="/shop?category_id=1">Men</a></li>
+        <li><a href="/shop?category_id=2">Women</a></li>
+        <li><a href="/orders" id="orders-link">My Orders</a></li>
+        <li><a href="/admin" id="admin-link" style="display:none">Admin</a></li>
+      </ul>
+      <div class="nav-actions">
+        <div class="search-box">
+          <input type="text" id="nav-search" placeholder="Search products...">
+          <button onclick="doSearch()">🔍</button>
+        </div>
+        <a href="/cart" class="cart-btn">🛒 Cart <span class="cart-count" id="cart-count">0</span></a>
+        <a href="/login" class="auth-btn" id="auth-btn">Login</a>
+        <div id="user-menu" style="display:none;align-items:center;gap:0.75rem">
+          <a href="/profile" style="color:white"><span id="user-name"></span></a>
+          <button class="auth-btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>  
+
+  <section class="hero">
+    <h1>Discover Your Style</h1>
+    <p>Shop the latest trends in men's, women's & kids fashion. Premium quality at unbeatable prices.</p>
+    <a href="/shop" class="btn btn-primary">Shop Now</a>
+    <a href="/shop?sort_by=rating" class="btn btn-outline" style="margin-left:1rem">Top Rated</a>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Shop by Category</h2>
+      <div class="categories-grid" id="categories">
+        <div class="loading"><div class="spinner"></div>Loading...</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="background:#fff">
+    <div class="container">
+      <h2 class="section-title">Featured Products</h2>
+      <div class="products-grid" id="featured">
+        <div class="loading"><div class="spinner"></div>Loading...</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Why Choose Us</h2>
+      <div class="categories-grid">
+        <div class="category-card">
+          <div class="icon">🚚</div>
+          <h3>Free Shipping</h3>
+          <p style="font-size:0.9rem;color:var(--muted);margin-top:0.5rem">On orders above ₹999</p>
+        </div>
+        <div class="category-card">
+          <div class="icon">↩️</div>
+          <h3>Easy Returns</h3>
+          <p style="font-size:0.9rem;color:var(--muted);margin-top:0.5rem">7-day return policy</p>
+        </div>
+        <div class="category-card">
+          <div class="icon">🔒</div>
+          <h3>Secure Payment</h3>
+          <p style="font-size:0.9rem;color:var(--muted);margin-top:0.5rem">COD & Online options</p>
+        </div>
+        <div class="category-card">
+          <div class="icon">⭐</div>
+          <h3>Quality Assured</h3>
+          <p style="font-size:0.9rem;color:var(--muted);margin-top:0.5rem">Premium fabrics only</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <h4>Balaji Clothing</h4>
+          <p>Your one-stop destination for trendy and affordable fashion.</p>
+        </div>
+        <div>
+          <h4>Quick Links</h4>
+          <ul>
+            <li><a href="/shop">Shop All</a></li>
+            <li><a href="/shop?category_id=1">Men</a></li>
+            <li><a href="/shop?category_id=2">Women</a></li>
+            <li><a href="/orders">My Orders</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Support</h4>
+          <ul>
+            <li><a href="#">Contact Us</a></li>
+            <li><a href="#">FAQs</a></li>
+            <li><a href="#">Shipping Info</a></li>
+            <li><a href="#">Returns</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Contact</h4>
+          <ul>
+            <li>📧 support@balaji.com</li>
+            <li>📞 +91 9353220548 </li>
+            <li>📍 Hubli , India</li>
+          </ul>
+        </div>
+      </div>
+<div class="footer-bottom">
+  &copy; 2026 Balaji Clothing. Designed and Developed by K. Aasritha Vardhan. All Rights Reserved.
+</div>
+    </div>
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    const catIcons = {1:'👔',2:'👗',3:'🧒',4:'👜',5:'👟'};
+
+    async function loadCategories() {
+      try {
+        const cats = await api('/categories');
+        document.getElementById('categories').innerHTML = cats.map(c => `
+          <a href="/shop?category_id=${c.id}" class="category-card">
+            <div class="icon">${catIcons[c.id] || '🛍️'}</div>
+            <h3>${c.name}</h3>
+          </a>
+        `).join('');
+      } catch(e) {
+        document.getElementById('categories').innerHTML = '<p>Failed to load categories</p>';
+      }
+    }
+
+    async function loadFeatured() {
+      try {
+        const products = await api('/products/featured');
+        document.getElementById('featured').innerHTML = products.map(p => productCard(p)).join('');
+      } catch(e) {
+        document.getElementById('featured').innerHTML = '<p>Failed to load products</p>';
+      }
+    }
+
+    function productCard(p) {
+      return `
+        <div class="product-card">
+          <a href="/product?id=${p.id}"><img class="product-img" src="${p.image_url}" alt="${p.name}" onerror="this.src='https://via.placeholder.com/400x400?text=Product'"></a>
+          <div class="product-body">
+            <div class="product-category">${p.category?.name || ''}</div>
+            <a href="/product?id=${p.id}"><h3 class="product-name">${p.name}</h3></a>
+            <div class="product-rating">${stars(p.rating)}</div>
+            <div class="product-price">
+              <span class="price-current">${formatPrice(p.price)}</span>
+              ${p.compare_at ? `<span class="price-old">${formatPrice(p.compare_at)}</span>` : ''}
+            </div>
+            <div class="product-actions">
+              <button class="btn btn-add" onclick="addToCart(${p.id})">Add to Cart</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function addToCart(productId) {
+      if (!isLoggedIn()) {
+        showToast('Please login to add items to cart', 'error');
+        setTimeout(() => location.href = '/login', 1000);
+        return;
+      }
+      try {
+        await api('/cart/items', { method: 'POST', body: JSON.stringify({ product_id: productId, quantity: 1 }) });
+        showToast('Added to cart!', 'success');
+        updateCartCount();
+      } catch(e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    function doSearch() {
+      const q = document.getElementById('nav-search').value.trim();
+      if (q) location.href = '/shop?search=' + encodeURIComponent(q);
+    }
+    document.getElementById('nav-search').addEventListener('keypress', e => { if(e.key==='Enter') doSearch(); });
+
+    // Show admin link if admin
+    if (isAdmin()) {
+      const al = document.getElementById('admin-link');
+      if (al) al.style.display = 'inline';
+    }
+
+    loadCategories();
+    loadFeatured();
+  </script>
+</body>
+</html>

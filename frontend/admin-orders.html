@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Orders - Admin</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/admin" class="logo">Balaji <span>Admin</span></a>
+      <div class="nav-actions">
+        <a href="/" class="auth-btn">View Store</a>
+        <button class="auth-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/products">Products</a>
+      <a href="/admin/orders" class="active">Orders</a>
+    </aside>
+    <main class="admin-content">
+      <h2 style="margin-bottom:1.5rem">Orders</h2>
+      <div id="orders-list"><div class="loading"><div class="spinner"></div></div></div>
+    </main>
+  </div>
+  <script src="/static/js/app.js"></script>
+  <script>
+    if (!isLoggedIn() || !isAdmin()) location.href = '/login';
+
+    async function load() {
+      const orders = await api('/admin/orders');
+      document.getElementById('orders-list').innerHTML = `
+        <table class="data-table">
+          <thead>
+            <tr><th>Order #</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Update</th></tr>
+          </thead>
+          <tbody>
+            ${orders.map(o => `
+              <tr>
+                <td>
+                  <strong>${o.order_number}</strong>
+                  <div style="font-size:0.8rem;color:var(--muted)">${new Date(o.created_at).toLocaleString()}</div>
+                </td>
+                <td>
+                  ${o.customer_name}<br>
+                  <span style="font-size:0.85rem">${o.email}<br>${o.phone}</span>
+                </td>
+                <td style="font-size:0.85rem">
+                  ${o.items.map(i => `${i.product?.name || 'Item'} ×${i.quantity}`).join('<br>')}
+                </td>
+                <td>${formatPrice(o.total)}</td>
+                <td>${o.payment_method}<br><small>${o.payment_status}</small></td>
+                <td><span class="status-badge status-${o.status}">${o.status}</span></td>
+                <td>
+                  <select onchange="updateStatus(${o.id}, this.value)" style="padding:0.3rem;border-radius:6px;border:1px solid var(--border)">
+                    <option value="">Change...</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    async function updateStatus(id, status) {
+      if (!status) return;
+      try {
+        await api('/admin/orders/' + id + '/status', {
+          method: 'PUT',
+          body: JSON.stringify({ status })
+        });
+        showToast('Status updated', 'success');
+        load();
+      } catch(e) { showToast(e.message, 'error'); }
+    }
+
+    load();
+  </script>
+</body>
+</html>
